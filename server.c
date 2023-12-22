@@ -16,6 +16,7 @@
 #define MAX_CLIENTS 10
 #define BUF_LEN 256
 #define STR_LEN 2048
+#define NEED_SEM 1
 
 union semun 
 {
@@ -24,22 +25,22 @@ union semun
     unsigned short  *array;
 };
 
-struct sembuf sm1 = { 0, -1, SEM_UNDO };
-struct sembuf sm2 = { 0, +1, SEM_UNDO };
+struct sembuf locker = { 0, -1, SEM_UNDO };
+struct sembuf unlocker = { 0, +1, SEM_UNDO };
 
 int main()
-{
+{    
     //создание семафора (идентификатор, кол-во семафоров, флаги)
-    int ids = semget(IPC_PRIVATE, 1, 0666 | IPC_CREAT);
-    if(ids == -1)
+    int semId = semget(IPC_PRIVATE, 1, 0666 | IPC_CREAT);
+    if(semId == -1)
     {
         perror("semget error");
         exit(EXIT_FAILURE);
     }
     union semun u;
     u.val = 1;
-    //переводим семафор в состояние готовность (идентификатор, номер семафора, действие, объединение)
-    if(semctl(ids, 0, SETVAL, u) == -1)
+    //переводим семафор в состояние готовности (идентификатор, номер семафора, действие, объединение)
+    if(semctl(semId, 0, SETVAL, u) == -1)
     {
         perror("semctl error");
         exit(EXIT_FAILURE);
@@ -70,7 +71,8 @@ int main()
         int clientFd = Accept(serverFd, (struct sockaddr *) &adr, &adrlen);
 
         //вход в критическую секцию
-        semop(ids, &sm1, 1);
+        if(NEED_SEM)
+            semop(semId, &locker, 1);
 
         //неблокирующее чтение (блоками по 256 байт)
         char buf[BUF_LEN];
@@ -97,7 +99,8 @@ int main()
         }
 
         //выход из критической секции
-        semop(ids, &sm2, 1);
+        if(NEED_SEM)
+            semop(semId, &unlocker, 1);
 
         if (fork() == 0) //child
         {            
@@ -106,8 +109,9 @@ int main()
             close(pipes[0]); //close reading
 
             //вход в критическую секцию
-            semop(ids, &sm1, 1);
-                     
+            if(NEED_SEM)
+                semop(semId, &locker, 1);
+                                
             Read(clientFd, buf, BUF_LEN);
             printf("\tReceived from socket string: %s\n", buf);
 
@@ -120,7 +124,8 @@ int main()
             Write(pipes[1], buf, BUF_LEN);
 
             //выход из критической секции
-            semop(ids, &sm2, 1);
+            if(NEED_SEM)
+                semop(semId, &unlocker, 1);
 
             close(clientFd);
             close(pipes[1]);
