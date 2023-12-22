@@ -1,5 +1,0 @@
-gcc client.c mystring.c myfifo.c -o client.exe
-./client.exe
-
-gcc server.c mystring.c myfifo.c -o server.exe
-./server.exe

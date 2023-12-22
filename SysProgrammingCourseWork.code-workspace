@@ -8,7 +8,11 @@
 		"files.associations": {
 			"stdio.h": "c",
 			"mystring.h": "c",
-			"myfifo.h": "c"
+			"myfifo.h": "c",
+			"socket.h": "c",
+			"types.h": "c",
+			"in.h": "c",
+			"inet.h": "c"
 		}
 	}
 }
